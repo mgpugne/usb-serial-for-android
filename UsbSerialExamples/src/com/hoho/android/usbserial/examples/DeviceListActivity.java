@@ -21,11 +21,9 @@
 package com.hoho.android.usbserial.examples;
 
 import android.app.Activity;
-import android.app.PendingIntent;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
-import android.content.IntentFilter;
 import android.hardware.usb.UsbDevice;
 import android.hardware.usb.UsbManager;
 import android.os.AsyncTask;
@@ -35,6 +33,8 @@ import android.os.Message;
 import android.os.SystemClock;
 import android.util.Log;
 import android.view.LayoutInflater;
+import android.view.Menu;
+import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.AdapterView;
@@ -44,10 +44,10 @@ import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.TwoLineListItem;
 
-import com.hoho.android.usbserial.driver.*;
+import com.hoho.android.usbserial.driver.ProlificSerialDriver;
+import com.hoho.android.usbserial.driver.UsbSerialDriver;
 import com.hoho.android.usbserial.util.HexDump;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -74,7 +74,6 @@ public class DeviceListActivity extends Activity {
             switch (msg.what) {
                 case MESSAGE_REFRESH:
                     refreshDeviceList();
-                    mHandler.sendEmptyMessageDelayed(MESSAGE_REFRESH, REFRESH_TIMEOUT_MILLIS);
                     break;
                 default:
                     super.handleMessage(msg);
@@ -95,8 +94,24 @@ public class DeviceListActivity extends Activity {
         }
     }
 
-    private List<DeviceEntry> mEntries = new ArrayList<DeviceEntry>();
+    private final List<DeviceEntry> mEntries = new ArrayList<DeviceEntry>();
     private ArrayAdapter<DeviceEntry> mAdapter;
+
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        getMenuInflater().inflate(R.menu.main_menu, menu);
+        return super.onCreateOptionsMenu(menu);
+    }
+
+    @Override
+    public boolean onMenuItemSelected(int featureId, MenuItem item) {
+        switch (item.getItemId()) {
+            case R.id.action_menu_refresh:
+                refreshDeviceList();
+                break;
+        }
+        return super.onMenuItemSelected(featureId, item);
+    }
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -107,18 +122,17 @@ public class DeviceListActivity extends Activity {
         mListView = (ListView) findViewById(R.id.deviceList);
         mProgressBar = (ProgressBar) findViewById(R.id.progressBar);
         mProgressBarTitle = (TextView) findViewById(R.id.progressBarTitle);
-        
+
         //Added
         final String ACTION_USB_PERMISSION =
                 "com.android.example.USB_PERMISSION";
-            
-            final PendingIntent mPermissionIntent = PendingIntent.getBroadcast(this, 0, new Intent(ACTION_USB_PERMISSION), 0);
-            IntentFilter filter = new IntentFilter(ACTION_USB_PERMISSION);
-            registerReceiver(mUsbReceiver, filter);
-            //mUsbManager.requestPermission(mEntries.get(1).device, mPermissionIntent);
-        ///
-            
-            
+
+//            final PendingIntent mPermissionIntent = PendingIntent.getBroadcast(this, 0, new Intent(ACTION_USB_PERMISSION), 0);
+//            IntentFilter filter = new IntentFilter(ACTION_USB_PERMISSION);
+//            registerReceiver(mUsbReceiver, filter);
+//            mUsbManager.requestPermission(mEntries.get(1).device, mPermissionIntent);
+
+
         mAdapter = new ArrayAdapter<DeviceEntry>(this, android.R.layout.simple_expandable_list_item_2, mEntries) {
             @Override
             public View getView(int position, View convertView, ViewGroup parent) {
@@ -155,11 +169,11 @@ public class DeviceListActivity extends Activity {
                     Log.w(TAG, "Illegal position.");
                     return;
                 }
-                
-                
+
+
 
                 final DeviceEntry entry = mEntries.get(position);
-                
+
                 final UsbSerialDriver driver = entry.driver;
                 if (driver == null) {
                     Log.d(TAG, "No driver.");
@@ -240,11 +254,12 @@ public class DeviceListActivity extends Activity {
     private void showConsoleActivity(UsbSerialDriver driver) {
         SerialConsoleActivity.show(this, driver);
     }
-    
+
     private static final String ACTION_USB_PERMISSION =
             "com.android.example.USB_PERMISSION";
         private final BroadcastReceiver mUsbReceiver = new BroadcastReceiver() {
 
+            @Override
             public void onReceive(Context context, Intent intent) {
                 String action = intent.getAction();
                 if (ACTION_USB_PERMISSION.equals(action)) {
@@ -255,7 +270,7 @@ public class DeviceListActivity extends Activity {
                             if(device != null){
                               //call method to set up device communication
                            }
-                        } 
+                        }
                         else {
                             Log.d(TAG, "permission denied for device " + device);
                         }
