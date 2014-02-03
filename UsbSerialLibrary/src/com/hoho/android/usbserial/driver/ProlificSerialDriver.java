@@ -223,7 +223,7 @@ public class ProlificSerialDriver extends CommonUsbSerialDriver {
             mReadStatusException = null;
             throw readStatusException;
         }
-        
+
         return mStatus;
     }
 
@@ -515,8 +515,8 @@ public class ProlificSerialDriver extends CommonUsbSerialDriver {
 
     public static Map<Integer, int[]> getSupportedDevices() {
         final Map<Integer, int[]> supportedDevices = new LinkedHashMap<Integer, int[]>();
-        supportedDevices.put(Integer.valueOf(UsbId.VENDOR_PROLIFIC),
-                new int[] { UsbId.PROLIFIC_PL2303, });
+        supportedDevices.put(Integer.valueOf(UsbId.VENDOR_PROLIFIC), new int[] { UsbId.PROLIFIC_PL2303, });
+        supportedDevices.put(Integer.valueOf(UsbId.VENDOR_PROLIFIC_TI), new int[] { UsbId.PROLIFIC_TI, });
         return supportedDevices;
     }
 }

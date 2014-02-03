@@ -21,16 +21,17 @@
 package com.hoho.android.usbserial.examples;
 
 import android.app.Activity;
+import android.app.PendingIntent;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.hardware.usb.UsbDevice;
 import android.hardware.usb.UsbManager;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
-import android.os.SystemClock;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.Menu;
@@ -38,14 +39,15 @@ import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.AdapterView;
+import android.widget.AdapterView.OnItemClickListener;
 import android.widget.ArrayAdapter;
 import android.widget.ListView;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.TwoLineListItem;
 
-import com.hoho.android.usbserial.driver.ProlificSerialDriver;
 import com.hoho.android.usbserial.driver.UsbSerialDriver;
+import com.hoho.android.usbserial.driver.UsbSerialProber;
 import com.hoho.android.usbserial.util.HexDump;
 
 import java.util.ArrayList;
@@ -56,7 +58,7 @@ import java.util.List;
  *
  * @author mike wakerly (opensource@hoho.com)
  */
-public class DeviceListActivity extends Activity {
+public class DeviceListActivity extends Activity implements OnItemClickListener {
 
     private final String TAG = DeviceListActivity.class.getSimpleName();
 
@@ -123,24 +125,20 @@ public class DeviceListActivity extends Activity {
         mProgressBar = (ProgressBar) findViewById(R.id.progressBar);
         mProgressBarTitle = (TextView) findViewById(R.id.progressBarTitle);
 
-        //Added
+        // Added
         final String ACTION_USB_PERMISSION =
                 "com.android.example.USB_PERMISSION";
 
-//            final PendingIntent mPermissionIntent = PendingIntent.getBroadcast(this, 0, new Intent(ACTION_USB_PERMISSION), 0);
-//            IntentFilter filter = new IntentFilter(ACTION_USB_PERMISSION);
-//            registerReceiver(mUsbReceiver, filter);
-//            mUsbManager.requestPermission(mEntries.get(1).device, mPermissionIntent);
-
-
-        mAdapter = new ArrayAdapter<DeviceEntry>(this, android.R.layout.simple_expandable_list_item_2, mEntries) {
+        mAdapter = new ArrayAdapter<DeviceEntry>(this,
+                android.R.layout.simple_expandable_list_item_2, mEntries) {
             @Override
             public View getView(int position, View convertView, ViewGroup parent) {
                 final TwoLineListItem row;
-                if (convertView == null){
+                if (convertView == null) {
                     final LayoutInflater inflater =
                             (LayoutInflater) getSystemService(Context.LAYOUT_INFLATER_SERVICE);
-                    row = (TwoLineListItem) inflater.inflate(android.R.layout.simple_list_item_2, null);
+                    row = (TwoLineListItem) inflater.inflate(android.R.layout.simple_list_item_2,
+                            null);
                 } else {
                     row = (TwoLineListItem) convertView;
                 }
@@ -161,28 +159,33 @@ public class DeviceListActivity extends Activity {
         };
         mListView.setAdapter(mAdapter);
 
-        mListView.setOnItemClickListener(new ListView.OnItemClickListener() {
-            @Override
-            public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
-                Log.d(TAG, "Pressed item " + position);
-                if (position >= mEntries.size()) {
-                    Log.w(TAG, "Illegal position.");
-                    return;
-                }
+        mListView.setOnItemClickListener(this);
+    }
 
+    @Override
+    public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+        Log.d(TAG, "Pressed item " + position);
+        if (position >= mEntries.size()) {
+            Log.w(TAG, "Illegal position.");
+            return;
+        }
 
+        final DeviceEntry entry = mEntries.get(position);
 
-                final DeviceEntry entry = mEntries.get(position);
+        final UsbSerialDriver driver = entry.driver;
+        if (driver == null) {
+            Log.d(TAG, "No driver.");
+            return;
+        }
 
-                final UsbSerialDriver driver = entry.driver;
-                if (driver == null) {
-                    Log.d(TAG, "No driver.");
-                    return;
-                }
+        final PendingIntent mPermissionIntent = PendingIntent.getBroadcast(this, 0, new Intent(
+                ACTION_USB_PERMISSION), 0);
+        IntentFilter filter = new IntentFilter(ACTION_USB_PERMISSION);
+        registerReceiver(mUsbReceiver, filter);
+        mUsbManager.requestPermission(entry.device, mPermissionIntent);
 
-                showConsoleActivity(driver);
-            }
-        });
+        showConsoleActivity(driver);
+
     }
 
     @Override
@@ -204,16 +207,10 @@ public class DeviceListActivity extends Activity {
             @Override
             protected List<DeviceEntry> doInBackground(Void... params) {
                 Log.d(TAG, "Refreshing device list ...");
-                SystemClock.sleep(1000);
                 final List<DeviceEntry> result = new ArrayList<DeviceEntry>();
                 for (final UsbDevice device : mUsbManager.getDeviceList().values()) {
-                    // Added
-                    //final List<UsbSerialDriver> drivers =
-                    //        UsbSerialProber.probeSingleDevice(mUsbManager, device);
-                    UsbSerialDriver ProlificDriver = new ProlificSerialDriver(device, mUsbManager.openDevice(device));
-                    final List<UsbSerialDriver> drivers = new ArrayList<UsbSerialDriver>();
-                    drivers.add(ProlificDriver);
-                    /////
+                    final List<UsbSerialDriver> drivers =
+                    UsbSerialProber.probeSingleDevice(mUsbManager, device);
                     Log.d(TAG, "Found usb device: " + device);
                     if (drivers.isEmpty()) {
                         Log.d(TAG, "  - No UsbSerialDriver available.");
@@ -234,12 +231,26 @@ public class DeviceListActivity extends Activity {
                 mEntries.addAll(result);
                 mAdapter.notifyDataSetChanged();
                 mProgressBarTitle.setText(
-                        String.format("%s device(s) found",Integer.valueOf(mEntries.size())));
+                        String.format("%s device(s) found", Integer.valueOf(mEntries.size())));
                 hideProgressBar();
                 Log.d(TAG, "Done refreshing, " + mEntries.size() + " entries found.");
             }
 
         }.execute((Void) null);
+    }
+
+    public static void log(Object... txt) {
+        String returnStr = "";
+        int i = 1;
+        int size = txt.length;
+        if (size != 0) {
+            returnStr = txt[0] == null ? "null" : txt[0].toString();
+            for (; i < size; i++) {
+                returnStr += ", "
+                        + (txt[i] == null ? "null" : txt[i].toString());
+            }
+        }
+        Log.i("lunch", returnStr);
     }
 
     private void showProgressBar() {
@@ -257,26 +268,29 @@ public class DeviceListActivity extends Activity {
 
     private static final String ACTION_USB_PERMISSION =
             "com.android.example.USB_PERMISSION";
-        private final BroadcastReceiver mUsbReceiver = new BroadcastReceiver() {
 
-            @Override
-            public void onReceive(Context context, Intent intent) {
-                String action = intent.getAction();
-                if (ACTION_USB_PERMISSION.equals(action)) {
-                    synchronized (this) {
-                        UsbDevice device = (UsbDevice)intent.getParcelableExtra(UsbManager.EXTRA_DEVICE);
+    private final BroadcastReceiver mUsbReceiver = new BroadcastReceiver() {
 
-                        if (intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false)) {
-                            if(device != null){
-                              //call method to set up device communication
-                           }
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            String action = intent.getAction();
+            if (ACTION_USB_PERMISSION.equals(action)) {
+                synchronized (this) {
+                    UsbDevice device = (UsbDevice) intent
+                            .getParcelableExtra(UsbManager.EXTRA_DEVICE);
+
+                    if (intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false)) {
+                        if (device != null) {
+                            Log.d(TAG, "got permission " + device);
+                            // call method to set up device communication
                         }
-                        else {
-                            Log.d(TAG, "permission denied for device " + device);
-                        }
+                    }
+                    else {
+                        Log.d(TAG, "permission denied for device " + device);
                     }
                 }
             }
-        };
+        }
+    };
 
 }
