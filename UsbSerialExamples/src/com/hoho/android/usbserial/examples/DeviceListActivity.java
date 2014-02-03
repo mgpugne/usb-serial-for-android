@@ -66,6 +66,7 @@ public class DeviceListActivity extends Activity implements OnItemClickListener 
     private ListView mListView;
     private TextView mProgressBarTitle;
     private ProgressBar mProgressBar;
+    private UsbSerialDriver mCurrentDriver;
 
     private static final int MESSAGE_REFRESH = 101;
     private static final long REFRESH_TIMEOUT_MILLIS = 5000;
@@ -87,6 +88,7 @@ public class DeviceListActivity extends Activity implements OnItemClickListener 
 
     /** Simple container for a UsbDevice and its driver. */
     private static class DeviceEntry {
+
         public UsbDevice device;
         public UsbSerialDriver driver;
 
@@ -172,20 +174,18 @@ public class DeviceListActivity extends Activity implements OnItemClickListener 
 
         final DeviceEntry entry = mEntries.get(position);
 
-        final UsbSerialDriver driver = entry.driver;
-        if (driver == null) {
+        mCurrentDriver = entry.driver;
+        if (mCurrentDriver == null) {
             Log.d(TAG, "No driver.");
             return;
         }
 
-        final PendingIntent mPermissionIntent = PendingIntent.getBroadcast(this, 0, new Intent(
-                ACTION_USB_PERMISSION), 0);
+        // Ask for permissions for the driver
+        Intent i = new Intent(ACTION_USB_PERMISSION);
+        final PendingIntent mPermissionIntent = PendingIntent.getBroadcast(this, 0, i, 0);
         IntentFilter filter = new IntentFilter(ACTION_USB_PERMISSION);
         registerReceiver(mUsbReceiver, filter);
         mUsbManager.requestPermission(entry.device, mPermissionIntent);
-
-        showConsoleActivity(driver);
-
     }
 
     @Override
@@ -276,17 +276,13 @@ public class DeviceListActivity extends Activity implements OnItemClickListener 
             String action = intent.getAction();
             if (ACTION_USB_PERMISSION.equals(action)) {
                 synchronized (this) {
-                    UsbDevice device = (UsbDevice) intent
-                            .getParcelableExtra(UsbManager.EXTRA_DEVICE);
-
-                    if (intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false)) {
-                        if (device != null) {
-                            Log.d(TAG, "got permission " + device);
-                            // call method to set up device communication
-                        }
+                    if (intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false) && mCurrentDriver != null) {
+                        Log.d(TAG, "got permission");
+                        showConsoleActivity(mCurrentDriver);
+                        mCurrentDriver = null;
                     }
                     else {
-                        Log.d(TAG, "permission denied for device " + device);
+                        Log.d(TAG, "permission denied for device");
                     }
                 }
             }
