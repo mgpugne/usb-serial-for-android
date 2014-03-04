@@ -109,12 +109,15 @@ public class DeviceListActivity extends Activity implements OnItemClickListener 
 
     @Override
     public boolean onMenuItemSelected(int featureId, MenuItem item) {
-        switch (item.getItemId()) {
-            case R.id.action_menu_refresh:
-                refreshDeviceList();
-                break;
+        int id = item.getItemId();
+        if ( id == R.id.action_menu_refresh) {
+            refreshDeviceList();
+            return true;
         }
-        return super.onMenuItemSelected(featureId, item);
+        else {
+            return super.onMenuItemSelected(featureId, item);
+        }
+        
     }
 
     @Override

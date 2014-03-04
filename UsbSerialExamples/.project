@@ -3,6 +3,7 @@
 	<name>UsbSerialExamples</name>
 	<comment></comment>
 	<projects>
+		<project>UsbSerialLibrary</project>
 	</projects>
 	<buildSpec>
 		<buildCommand>

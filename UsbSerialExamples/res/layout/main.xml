@@ -11,7 +11,8 @@
         android:layout_centerHorizontal="true"
         android:text="@string/app_title"
         android:textSize="24sp"
-        android:textStyle="bold" />
+        android:textStyle="bold"
+        android:visibility="invisible" />
 
     <TextView
         android:id="@+id/progressBarTitle"
